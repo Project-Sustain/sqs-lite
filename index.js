@@ -73,10 +73,16 @@ MongoClient.connect(url, async function (err, client) {
 
 const express = require('express')
 const compression = require('compression')
+const cors = require('cors')
 const app = express()
 const port = 8003
 
+app.use(cors())
+app.use(express.urlencoded({extended: true}));
 app.use(compression({ filter: shouldCompress }))
+app.use(express.json({
+    limit: '500mb'
+}));
 
 function shouldCompress (req, res) {
   if (req.headers['x-no-compression']) {
@@ -86,10 +92,12 @@ function shouldCompress (req, res) {
   return compression.filter(req, res)
 }
 
-app.get('/mongo', async (req, res) => {
-    console.log(req.query)
-    const { collection, pipeline } = req.query;
+app.post('/mongo', async (req, res) => {
+    console.log('body: ')
+    const { collection, pipeline } = req.body;
     if (collection && pipeline) {
+        console.log(`Got request for:`)
+        console.log(req.body)
         console.log(`querying collection ${collection}`)
         const mongoCollection = await dbInterface.collection(collection);
         if (!mongoCollection) {
@@ -98,9 +106,12 @@ app.get('/mongo', async (req, res) => {
             return;
         }
         console.log(`Querying ${pipeline} within ${collection}`)
-        const aggregateResult = await mongoCollection.aggregate(JSON.parse(pipeline));
+        const aggregateResult = await mongoCollection.aggregate(pipeline);
         // console.log()
+        console.log(`Responding`)
+        
         res.json(await aggregateResult.toArray())
+        console.log('done responding')
     }
     else {
         res.json({ invalidQuery: true })
