@@ -78,18 +78,18 @@ const app = express()
 const port = 8003
 
 app.use(cors())
-app.use(express.urlencoded({extended: true}));
+app.use(express.urlencoded({ extended: true }));
 app.use(compression())
 app.use(express.json({
     limit: '500mb'
 }));
 
-function shouldCompress (req, res) {
-  if (req.headers['x-no-compression']) {
-    return false
-  }
+function shouldCompress(req, res) {
+    if (req.headers['x-no-compression']) {
+        return false
+    }
 
-  return compression.filter(req, res)
+    return compression.filter(req, res)
 }
 
 app.post('/mongo', async (req, res) => {
@@ -113,22 +113,38 @@ app.post('/mongo', async (req, res) => {
         let buf = ''
         buf += '['
         let first = true;
-        res.writeHead(200,{"Content-Type" : "application/json"});
-        await aggregateResult.forEach((result) => {
+        let i = 0;
+        res.writeHead(200, { "Content-Type": "application/json" });
+        for await (const result of aggregateResult) {
             buf += (first ? '' : ',') + JSON.stringify(result)
-            if(buf.length > sizeEpsilon) {
-                res.write(buf)
-                console.log('bufclear')
+            if(i++ % 1000 === 0) console.log(`chonk ${i}`)
+            // console.log(JSON.stringify(result))
+            if (buf.length > sizeEpsilon) {
+                console.log("clearing buffer")
+                const full = !res.write(buf)
                 buf = ''
+                if (full) {
+                    console.log("pipe is full, waiting for drain")
+                    await new Promise(resolve => {
+                        const onDrain = () => {
+                            console.log("pipe drained, continuing")
+                            res.removeListener("drain", onDrain)
+                            resolve();
+                        }
+                        res.on("drain", onDrain)
+                    });
+                }
             }
             first = false;
-        })
+        }
+
         console.log('bufclearEND')
         res.write(buf)
         res.write(']')
         res.end();
         //res.json(await aggregateResult.toArray())
         console.log('done responding')
+        
     }
     else {
         res.json({ invalidQuery: true })
