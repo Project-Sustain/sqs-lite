@@ -79,7 +79,7 @@ const port = 8003
 
 app.use(cors())
 app.use(express.urlencoded({extended: true}));
-app.use(compression({ filter: shouldCompress }))
+app.use(compression())
 app.use(express.json({
     limit: '500mb'
 }));
@@ -109,8 +109,25 @@ app.post('/mongo', async (req, res) => {
         const aggregateResult = await mongoCollection.aggregate(pipeline);
         // console.log()
         console.log(`Responding`)
-        
-        res.json(await aggregateResult.toArray())
+        const sizeEpsilon = 5000000;
+        let buf = ''
+        buf += '['
+        let first = true;
+        res.writeHead(200,{"Content-Type" : "application/json"});
+        await aggregateResult.forEach((result) => {
+            buf += (first ? '' : ',') + JSON.stringify(result)
+            if(buf.length > sizeEpsilon) {
+                res.write(buf)
+                console.log('bufclear')
+                buf = ''
+            }
+            first = false;
+        })
+        console.log('bufclearEND')
+        res.write(buf)
+        res.write(']')
+        res.end();
+        //res.json(await aggregateResult.toArray())
         console.log('done responding')
     }
     else {
