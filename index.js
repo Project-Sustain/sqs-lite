@@ -72,6 +72,7 @@ MongoClient.connect(url, async function (err, client) {
 });
 
 const express = require('express')
+const JSONStream = require('JSONStream')
 const compression = require('compression')
 const cors = require('cors')
 const app = express()
@@ -109,39 +110,9 @@ app.post('/mongo', async (req, res) => {
         const aggregateResult = await mongoCollection.aggregate(pipeline);
         // console.log()
         console.log(`Responding`)
-        const sizeEpsilon = 5000000;
-        let buf = ''
-        buf += '['
-        let first = true;
-        let i = 0;
-        res.writeHead(200, { "Content-Type": "application/json" });
-        for await (const result of aggregateResult) {
-            buf += (first ? '' : ',') + JSON.stringify(result)
-            if(i++ % 1000 === 0) console.log(`chonk ${i}`)
-            // console.log(JSON.stringify(result))
-            if (buf.length > sizeEpsilon) {
-                console.log("clearing buffer")
-                const full = !res.write(buf)
-                buf = ''
-                if (full) {
-                    console.log("pipe is full, waiting for drain")
-                    await new Promise(resolve => {
-                        const onDrain = () => {
-                            console.log("pipe drained, continuing")
-                            res.removeListener("drain", onDrain)
-                            resolve();
-                        }
-                        res.on("drain", onDrain)
-                    });
-                }
-            }
-            first = false;
-        }
-
-        console.log('bufclearEND')
-        res.write(buf)
-        res.write(']')
-        res.end();
+        aggregateResult.stream()
+        .pipe(JSONStream.stringify())
+        .pipe(res.type('json'))
         //res.json(await aggregateResult.toArray())
         console.log('done responding')
         
