@@ -74,15 +74,17 @@ MongoClient.connect(url, async function (err, client) {
 
 const aggregationQuery = async (collection, aggregationPipeline = [], qid = "unknown") => {
     try {
-        const mongoCollection = await dbInterface.collection(collection);
+        const mongoCollection = await dbInterface.collection(collection)
         if (!mongoCollection) {
             console.log(`${qid} failed, collection ${collection} does not exist`)
             return null;
         }
-        console.log(`Querying ${pipeline} within ${collection}`)
-        return await mongoCollection.aggregate(aggregationPipeline);
+        console.log(`Querying ${JSON.stringify(aggregationPipeline)} within ${collection}`)
+        return await mongoCollection.aggregate(aggregationPipeline)
     }
-    catch {
+    catch(e) {
+        console.log(`${qid} Mongo query caught the following error: `)
+        console.error(e)
         return null;
     }
 }

@@ -86,6 +86,7 @@ app.post('/mongo', async (req, res) => {
         try {
             const aggregateResult = await aggregationQuery(collection, pipeline, qid);
             if(!aggregateResult) {
+                console.log(`${qid} aggregation retured null. Finishing.`)
                 res.json({badQuery: true})
                 return;
             }
