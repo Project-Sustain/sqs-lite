@@ -85,37 +85,36 @@ app.use(express.json({
     limit: '500mb'
 }));
 
-function shouldCompress(req, res) {
-    if (req.headers['x-no-compression']) {
-        return false
-    }
-
-    return compression.filter(req, res)
-}
-
 app.post('/mongo', async (req, res) => {
-    console.log('body: ')
+    const qid = Math.random().toString(36).substring(2,7);
+    const timeStart = Date.now();
+    console.log(`got request: ${qid}, with body: ${JSON.stringify(req.body).substr(0,200)}`)
     const { collection, pipeline } = req.body;
     if (collection && pipeline) {
-        console.log(`Got request for:`)
-        console.log(req.body)
-        console.log(`querying collection ${collection}`)
-        const mongoCollection = await dbInterface.collection(collection);
-        if (!mongoCollection) {
-            console.log(`collection ${collection} does not exist`)
-            res.json({ invalidCollectionName: true })
-            return;
+        console.log(`${qid} is valid, continuing.`)
+        console.log(`${qid} is querying collection ${collection}`)
+        try {
+            const mongoCollection = await dbInterface.collection(collection);
+            if (!mongoCollection) {
+                console.log(`${qid} failed, collection ${collection} does not exist`)
+                res.json({ invalidCollectionName: true })
+                return;
+            }
+            console.log(`Querying ${pipeline} within ${collection}`)
+            const aggregateResult = await mongoCollection.aggregate(pipeline);
+            // console.log()
+            console.log(`Responding to ${qid}`)
+            aggregateResult.stream()
+                .pipe(JSONStream.stringify())
+                .pipe(res.type('json'))
+            //res.json(await aggregateResult.toArray())
+            aggregateResult.on('close', () => {
+                console.log(`${qid} done responding. Total time for server = ${Date.now() - timeStart}ms`)
+            })
         }
-        console.log(`Querying ${pipeline} within ${collection}`)
-        const aggregateResult = await mongoCollection.aggregate(pipeline);
-        // console.log()
-        console.log(`Responding`)
-        aggregateResult.stream()
-        .pipe(JSONStream.stringify())
-        .pipe(res.type('json'))
-        //res.json(await aggregateResult.toArray())
-        console.log('done responding')
-        
+        catch {
+            res.json({ queryFailedInExecution: true })
+        }
     }
     else {
         res.json({ invalidQuery: true })
