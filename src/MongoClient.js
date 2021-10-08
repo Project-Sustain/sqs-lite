@@ -58,6 +58,7 @@
  *
  * END OF TERMS AND CONDITIONS
  */
+
 const MongoClient = require('mongodb').MongoClient;
 const url = `mongodb://localhost:27018`;
 
@@ -71,57 +72,21 @@ MongoClient.connect(url, async function (err, client) {
     dbInterface = db;
 });
 
-const express = require('express')
-const JSONStream = require('JSONStream')
-const compression = require('compression')
-const cors = require('cors')
-const app = express()
-const port = 8003
-
-app.use(cors())
-app.use(express.urlencoded({ extended: true }));
-app.use(compression())
-app.use(express.json({
-    limit: '500mb'
-}));
-
-app.post('/mongo', async (req, res) => {
-    const qid = Math.random().toString(36).substring(2,7);
-    const timeStart = Date.now();
-    console.log(`got request: ${qid}, with body: ${JSON.stringify(req.body).substr(0,200)}`)
-    const { collection, pipeline } = req.body;
-    if (collection && pipeline) {
-        console.log(`${qid} is valid, continuing.`)
-        console.log(`${qid} is querying collection ${collection}`)
-        try {
-            const mongoCollection = await dbInterface.collection(collection);
-            if (!mongoCollection) {
-                console.log(`${qid} failed, collection ${collection} does not exist`)
-                res.json({ invalidCollectionName: true })
-                return;
-            }
-            console.log(`Querying ${pipeline} within ${collection}`)
-            const aggregateResult = await mongoCollection.aggregate(pipeline);
-            // console.log()
-            console.log(`Responding to ${qid}`)
-            aggregateResult.stream()
-                .pipe(JSONStream.stringify())
-                .pipe(res.type('json'))
-            //res.json(await aggregateResult.toArray())
-            aggregateResult.on('close', () => {
-                console.log(`${qid} done responding. Total time for server = ${Date.now() - timeStart}ms`)
-            })
+const aggregationQuery = async (collection, aggregationPipeline = [], qid = "unknown") => {
+    try {
+        const mongoCollection = await dbInterface.collection(collection);
+        if (!mongoCollection) {
+            console.log(`${qid} failed, collection ${collection} does not exist`)
+            return null;
         }
-        catch {
-            res.json({ queryFailedInExecution: true })
-        }
+        console.log(`Querying ${pipeline} within ${collection}`)
+        return await mongoCollection.aggregate(aggregationPipeline);
     }
-    else {
-        res.json({ invalidQuery: true })
+    catch {
+        return null;
     }
-})
+}
 
-app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`)
-})
-
+module.exports = {
+    aggregationQuery
+}
