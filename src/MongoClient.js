@@ -79,7 +79,7 @@ const aggregationQuery = async (collection, aggregationPipeline = [], qid = "unk
             console.log(`${qid} failed, collection ${collection} does not exist`)
             return null;
         }
-        console.log(`Querying ${JSON.stringify(aggregationPipeline)} within ${collection}`)
+        console.log(`Querying ${JSON.stringify(aggregationPipeline).substr(0,100)} within ${collection}`)
         return await mongoCollection.aggregate(aggregationPipeline)
     }
     catch(e) {
