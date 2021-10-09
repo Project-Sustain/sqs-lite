@@ -59,13 +59,15 @@
  * END OF TERMS AND CONDITIONS
  */
 
-
+const yargs = require('yargs/yargs')
+const { hideBin } = require('yargs/helpers')
+const argv = yargs(hideBin(process.argv)).argv
 const express = require('express')
 const JSONStream = require('JSONStream')
 const compression = require('compression')
 const cors = require('cors')
 const app = express()
-const port = 8003
+const port = !isNaN(Number(argv.port)) ? argv.port : 8003
 const { aggregationQuery } = require('./MongoClient')
 
 app.use(cors())
@@ -108,6 +110,6 @@ app.post('/mongo', async (req, res) => {
 })
 
 app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`)
+    console.log(`SQS-lite is listening at http://0.0.0.0:${port}`)
 })
 
